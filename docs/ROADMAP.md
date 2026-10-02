@@ -7,14 +7,14 @@
 - [x] Agent enrollment and heartbeat
 - [x] Basic audit events
 - [x] Rootless, read-only container profile
-- [ ] Automated tests and CI
+- [x] Automated tests and CI
 
 ## M1 — Secure control plane
 
 - [ ] PostgreSQL migrations
 - [ ] OIDC and WebAuthn
 - [ ] Organization-scoped RBAC
-- [ ] CIDR and hostname scope validation
+- [x] CIDR validation and inventory input limits
 - [ ] Expiring one-time enrollment tokens
 - [ ] Agent mTLS certificates and rotation
 - [ ] Hash-chained audit journal
