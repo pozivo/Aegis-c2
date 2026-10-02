@@ -16,3 +16,7 @@ idempotency keys, explicit organization context, and policy decisions.
 
 Request bodies are limited to 32 KiB, reject unknown JSON fields, and apply
 basic inventory field limits. Engagement scope values must be valid CIDRs.
+
+Creating an engagement returns an `enrollment_token` once. Enrollment requires
+it as `Authorization: Bearer <token>`. The control plane stores only its SHA-256
+digest, compares it in constant time, and consumes it after successful use.
