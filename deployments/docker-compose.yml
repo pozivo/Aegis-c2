@@ -1,0 +1,15 @@
+services:
+  control-plane:
+    build:
+      context: ../control-plane
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
