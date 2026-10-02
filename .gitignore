@@ -1,0 +1,5 @@
+/agent/target/
+*.log
+.env
+.idea/
+.vscode/
