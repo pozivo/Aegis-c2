@@ -15,7 +15,7 @@
 - [ ] OIDC and WebAuthn
 - [ ] Organization-scoped RBAC
 - [x] CIDR validation and inventory input limits
-- [ ] Expiring one-time enrollment tokens
+- [x] One-time enrollment tokens bound to engagement expiry
 - [ ] Agent mTLS certificates and rotation
 - [ ] Hash-chained audit journal
 
