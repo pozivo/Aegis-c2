@@ -20,3 +20,6 @@ basic inventory field limits. Engagement scope values must be valid CIDRs.
 Creating an engagement returns an `enrollment_token` once. Enrollment requires
 it as `Authorization: Bearer <token>`. The control plane stores only its SHA-256
 digest, compares it in constant time, and consumes it after successful use.
+
+Audit events include `prev_hash` and `hash`. The readiness endpoint recomputes
+the chain and returns HTTP 503 when in-memory audit integrity is invalid.

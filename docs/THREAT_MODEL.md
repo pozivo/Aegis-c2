@@ -19,7 +19,7 @@
 | Replayed task | Task IDs and deadlines | Signed nonce and replay cache |
 | Out-of-scope operation | Engagement required | CIDR/DNS policy at API and agent |
 | Malicious plugin | No alpha plugins | WASM sandbox, capability manifest |
-| Audit tampering | Append-only API | Hash chain and external anchoring |
+| Audit tampering | SHA-256 hash chain | Persistent journal and external anchoring |
 | Supply-chain compromise | Minimal images | SBOM, provenance, signed releases |
 | Agent impersonation | Enrollment association | One-time enrollment plus mTLS cert |
 | Resource exhaustion | Body/time limits | Quotas, backpressure, rate limits |

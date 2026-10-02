@@ -46,6 +46,17 @@ type auditEvent struct {
 	Action    string         `json:"action"`
 	SubjectID string         `json:"subject_id"`
 	Details   map[string]any `json:"details,omitempty"`
+	PrevHash  string         `json:"prev_hash,omitempty"`
+	Hash      string         `json:"hash"`
+}
+
+type auditPayload struct {
+	ID        string         `json:"id"`
+	Time      time.Time      `json:"time"`
+	Action    string         `json:"action"`
+	SubjectID string         `json:"subject_id"`
+	Details   map[string]any `json:"details,omitempty"`
+	PrevHash  string         `json:"prev_hash,omitempty"`
 }
 
 type store struct {
@@ -139,12 +150,54 @@ func tokenMatches(token string, expected [sha256.Size]byte) bool {
 	return subtle.ConstantTimeCompare(actual[:], expected[:]) == 1
 }
 
+func auditHash(event auditEvent) string {
+	payload, err := json.Marshal(auditPayload{
+		ID:        event.ID,
+		Time:      event.Time,
+		Action:    event.Action,
+		SubjectID: event.SubjectID,
+		Details:   event.Details,
+		PrevHash:  event.PrevHash,
+	})
+	if err != nil {
+		panic(err)
+	}
+	digest := sha256.Sum256(payload)
+	return hex.EncodeToString(digest[:])
+}
+
+func appendAudit(s *store, event auditEvent) {
+	if len(s.audit) > 0 {
+		event.PrevHash = s.audit[len(s.audit)-1].Hash
+	}
+	event.Hash = auditHash(event)
+	s.audit = append(s.audit, event)
+}
+
+func verifyAuditChain(events []auditEvent) bool {
+	previous := ""
+	for _, event := range events {
+		if event.PrevHash != previous || event.Hash != auditHash(event) {
+			return false
+		}
+		previous = event.Hash
+	}
+	return true
+}
+
 func newHandler(s *store, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	mux.HandleFunc("GET /readyz", func(w http.ResponseWriter, _ *http.Request) {
+		s.RLock()
+		validAudit := verifyAuditChain(s.audit)
+		s.RUnlock()
+		if !validAudit {
+			writeJSON(w, http.StatusServiceUnavailable, map[string]string{"status": "audit integrity failure"})
+			return
+		}
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ready"})
 	})
 	mux.HandleFunc("POST /v1/engagements", func(w http.ResponseWriter, r *http.Request) {
@@ -164,7 +217,7 @@ func newHandler(s *store, now func() time.Time) http.Handler {
 		s.Lock()
 		s.engagements[e.ID] = e
 		s.enrollmentToken[e.ID] = tokenHash
-		s.audit = append(s.audit, auditEvent{ID: id(), Time: current, Action: "engagement.created", SubjectID: e.ID})
+		appendAudit(s, auditEvent{ID: id(), Time: current, Action: "engagement.created", SubjectID: e.ID})
 		s.Unlock()
 		writeJSON(w, http.StatusCreated, engagementCreated{engagement: e, EnrollmentToken: enrollmentToken})
 	})
@@ -199,7 +252,7 @@ func newHandler(s *store, now func() time.Time) http.Handler {
 		a.ID, a.LastSeen = id(), current
 		s.agents[a.ID] = a
 		delete(s.enrollmentToken, a.EngagementID)
-		s.audit = append(s.audit, auditEvent{ID: id(), Time: current, Action: "agent.enrolled", SubjectID: a.ID, Details: map[string]any{"engagement_id": a.EngagementID}})
+		appendAudit(s, auditEvent{ID: id(), Time: current, Action: "agent.enrolled", SubjectID: a.ID, Details: map[string]any{"engagement_id": a.EngagementID}})
 		writeJSON(w, http.StatusCreated, a)
 	})
 	mux.HandleFunc("POST /v1/agents/{agentID}/heartbeat", func(w http.ResponseWriter, r *http.Request) {

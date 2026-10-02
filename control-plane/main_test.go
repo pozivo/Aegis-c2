@@ -99,6 +99,9 @@ func TestEnrollmentAndHeartbeat(t *testing.T) {
 	if len(store.audit) != 2 {
 		t.Fatalf("expected two audit events, got %d", len(store.audit))
 	}
+	if !verifyAuditChain(store.audit) {
+		t.Fatal("expected a valid audit chain")
+	}
 }
 
 func TestExpiredEngagementBlocksHeartbeat(t *testing.T) {
@@ -161,5 +164,18 @@ func TestUnknownFieldsAreRejected(t *testing.T) {
 	})
 	if response.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d", response.Code)
+	}
+}
+
+func TestReadinessDetectsAuditTampering(t *testing.T) {
+	store := newStore()
+	handler := newHandler(store, func() time.Time { return fixedNow })
+	createEngagement(t, handler)
+	store.Lock()
+	store.audit[0].Action = "tampered.action"
+	store.Unlock()
+	response := request(t, handler, http.MethodGet, "/readyz", nil)
+	if response.Code != http.StatusServiceUnavailable {
+		t.Fatalf("expected 503 after audit tampering, got %d", response.Code)
 	}
 }

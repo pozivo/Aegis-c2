@@ -17,7 +17,7 @@
 - [x] CIDR validation and inventory input limits
 - [x] One-time enrollment tokens bound to engagement expiry
 - [ ] Agent mTLS certificates and rotation
-- [ ] Hash-chained audit journal
+- [x] SHA-256 hash-chained in-memory audit journal
 
 ## M2 — Reliable orchestration
 
