@@ -41,6 +41,10 @@ curl -X POST http://127.0.0.1:8080/v1/engagements \
   -d '{"name":"local-lab","allowed_cidrs":["127.0.0.0/8"],"expires_at":"2030-01-01T00:00:00Z"}'
 ```
 
+The response contains a one-time `enrollment_token`. Start the lab agent with
+`AEGIS_SERVER`, `AEGIS_ENGAGEMENT_ID`, and `AEGIS_ENROLLMENT_TOKEN`; the token
+is stored only as a digest by the server and is consumed on successful use.
+
 The alpha API is intentionally unauthenticated only on loopback/local Compose.
 Do not expose it to a network. OIDC, mTLS, PostgreSQL, signed audit chains, and
 policy enforcement are required before any non-local deployment.
