@@ -11,7 +11,7 @@ import (
 
 var fixedNow = time.Date(2026, 10, 2, 20, 0, 0, 0, time.UTC)
 
-func request(t *testing.T, handler http.Handler, method, path string, body any) *httptest.ResponseRecorder {
+func requestWithToken(t *testing.T, handler http.Handler, method, path string, body any, token string) *httptest.ResponseRecorder {
 	t.Helper()
 	var data []byte
 	if body != nil {
@@ -23,12 +23,20 @@ func request(t *testing.T, handler http.Handler, method, path string, body any) 
 	}
 	req := httptest.NewRequest(method, path, bytes.NewReader(data))
 	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	response := httptest.NewRecorder()
 	handler.ServeHTTP(response, req)
 	return response
 }
 
-func createEngagement(t *testing.T, handler http.Handler) engagement {
+func request(t *testing.T, handler http.Handler, method, path string, body any) *httptest.ResponseRecorder {
+	t.Helper()
+	return requestWithToken(t, handler, method, path, body, "")
+}
+
+func createEngagement(t *testing.T, handler http.Handler) engagementCreated {
 	t.Helper()
 	response := request(t, handler, http.MethodPost, "/v1/engagements", map[string]any{
 		"name":          "local-lab",
@@ -38,7 +46,7 @@ func createEngagement(t *testing.T, handler http.Handler) engagement {
 	if response.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", response.Code, response.Body.String())
 	}
-	var result engagement
+	var result engagementCreated
 	if err := json.NewDecoder(response.Body).Decode(&result); err != nil {
 		t.Fatal(err)
 	}
@@ -71,12 +79,12 @@ func TestEnrollmentAndHeartbeat(t *testing.T) {
 	store := newStore()
 	handler := newHandler(store, func() time.Time { return fixedNow })
 	e := createEngagement(t, handler)
-	response := request(t, handler, http.MethodPost, "/v1/agents/enroll", map[string]any{
+	response := requestWithToken(t, handler, http.MethodPost, "/v1/agents/enroll", map[string]any{
 		"engagement_id": e.ID,
 		"hostname":      "lab-host",
 		"os":            "linux",
 		"architecture":  "amd64",
-	})
+	}, e.EnrollmentToken)
 	if response.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", response.Code, response.Body.String())
 	}
@@ -98,12 +106,12 @@ func TestExpiredEngagementBlocksHeartbeat(t *testing.T) {
 	store := newStore()
 	handler := newHandler(store, func() time.Time { return clock })
 	e := createEngagement(t, handler)
-	response := request(t, handler, http.MethodPost, "/v1/agents/enroll", map[string]any{
+	response := requestWithToken(t, handler, http.MethodPost, "/v1/agents/enroll", map[string]any{
 		"engagement_id": e.ID,
 		"hostname":      "lab-host",
 		"os":            "linux",
 		"architecture":  "amd64",
-	})
+	}, e.EnrollmentToken)
 	var enrolled agent
 	if err := json.NewDecoder(response.Body).Decode(&enrolled); err != nil {
 		t.Fatal(err)
@@ -112,6 +120,34 @@ func TestExpiredEngagementBlocksHeartbeat(t *testing.T) {
 	heartbeat := request(t, handler, http.MethodPost, "/v1/agents/"+enrolled.ID+"/heartbeat", nil)
 	if heartbeat.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", heartbeat.Code)
+	}
+}
+
+func TestEnrollmentTokenIsRequiredAndSingleUse(t *testing.T) {
+	store := newStore()
+	handler := newHandler(store, func() time.Time { return fixedNow })
+	e := createEngagement(t, handler)
+	body := map[string]any{
+		"engagement_id": e.ID,
+		"hostname":      "lab-host",
+		"os":            "linux",
+		"architecture":  "amd64",
+	}
+	missing := request(t, handler, http.MethodPost, "/v1/agents/enroll", body)
+	if missing.Code != http.StatusUnauthorized {
+		t.Fatalf("expected missing token to return 401, got %d", missing.Code)
+	}
+	invalid := requestWithToken(t, handler, http.MethodPost, "/v1/agents/enroll", body, "wrong-token")
+	if invalid.Code != http.StatusUnauthorized {
+		t.Fatalf("expected invalid token to return 401, got %d", invalid.Code)
+	}
+	accepted := requestWithToken(t, handler, http.MethodPost, "/v1/agents/enroll", body, e.EnrollmentToken)
+	if accepted.Code != http.StatusCreated {
+		t.Fatalf("expected valid token to return 201, got %d", accepted.Code)
+	}
+	reused := requestWithToken(t, handler, http.MethodPost, "/v1/agents/enroll", body, e.EnrollmentToken)
+	if reused.Code != http.StatusUnauthorized {
+		t.Fatalf("expected reused token to return 401, got %d", reused.Code)
 	}
 }
 
