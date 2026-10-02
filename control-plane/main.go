@@ -2,6 +2,8 @@ package main
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
+	"crypto/subtle"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -21,6 +23,11 @@ type engagement struct {
 	AllowedCIDRs []string  `json:"allowed_cidrs"`
 	ExpiresAt    time.Time `json:"expires_at"`
 	CreatedAt    time.Time `json:"created_at"`
+}
+
+type engagementCreated struct {
+	engagement
+	EnrollmentToken string `json:"enrollment_token"`
 }
 
 type agent struct {
@@ -43,13 +50,18 @@ type auditEvent struct {
 
 type store struct {
 	sync.RWMutex
-	engagements map[string]engagement
-	agents      map[string]agent
-	audit       []auditEvent
+	engagements     map[string]engagement
+	enrollmentToken map[string][sha256.Size]byte
+	agents          map[string]agent
+	audit           []auditEvent
 }
 
 func newStore() *store {
-	return &store{engagements: map[string]engagement{}, agents: map[string]agent{}}
+	return &store{
+		engagements:     map[string]engagement{},
+		enrollmentToken: map[string][sha256.Size]byte{},
+		agents:          map[string]agent{},
+	}
 }
 
 func id() string {
@@ -112,6 +124,21 @@ func validateAgent(a agent) error {
 	return nil
 }
 
+func bearerToken(r *http.Request) (string, bool) {
+	value := r.Header.Get("Authorization")
+	const prefix = "Bearer "
+	if !strings.HasPrefix(value, prefix) {
+		return "", false
+	}
+	token := strings.TrimSpace(strings.TrimPrefix(value, prefix))
+	return token, token != ""
+}
+
+func tokenMatches(token string, expected [sha256.Size]byte) bool {
+	actual := sha256.Sum256([]byte(token))
+	return subtle.ConstantTimeCompare(actual[:], expected[:]) == 1
+}
+
 func newHandler(s *store, now func() time.Time) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
@@ -132,11 +159,14 @@ func newHandler(s *store, now func() time.Time) http.Handler {
 			return
 		}
 		e.ID, e.CreatedAt = id(), current
+		enrollmentToken := id()
+		tokenHash := sha256.Sum256([]byte(enrollmentToken))
 		s.Lock()
 		s.engagements[e.ID] = e
+		s.enrollmentToken[e.ID] = tokenHash
 		s.audit = append(s.audit, auditEvent{ID: id(), Time: current, Action: "engagement.created", SubjectID: e.ID})
 		s.Unlock()
-		writeJSON(w, http.StatusCreated, e)
+		writeJSON(w, http.StatusCreated, engagementCreated{engagement: e, EnrollmentToken: enrollmentToken})
 	})
 	mux.HandleFunc("POST /v1/agents/enroll", func(w http.ResponseWriter, r *http.Request) {
 		var a agent
@@ -149,6 +179,11 @@ func newHandler(s *store, now func() time.Time) http.Handler {
 			return
 		}
 		current := now().UTC()
+		token, ok := bearerToken(r)
+		if !ok {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "enrollment token required"})
+			return
+		}
 		s.Lock()
 		defer s.Unlock()
 		e, ok := s.engagements[a.EngagementID]
@@ -156,8 +191,14 @@ func newHandler(s *store, now func() time.Time) http.Handler {
 			writeJSON(w, http.StatusForbidden, map[string]string{"error": "engagement unavailable"})
 			return
 		}
+		expectedToken, ok := s.enrollmentToken[a.EngagementID]
+		if !ok || !tokenMatches(token, expectedToken) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid enrollment token"})
+			return
+		}
 		a.ID, a.LastSeen = id(), current
 		s.agents[a.ID] = a
+		delete(s.enrollmentToken, a.EngagementID)
 		s.audit = append(s.audit, auditEvent{ID: id(), Time: current, Action: "agent.enrolled", SubjectID: a.ID, Details: map[string]any{"engagement_id": a.EngagementID}})
 		writeJSON(w, http.StatusCreated, a)
 	})
