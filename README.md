@@ -45,6 +45,16 @@ The alpha API is intentionally unauthenticated only on loopback/local Compose.
 Do not expose it to a network. OIDC, mTLS, PostgreSQL, signed audit chains, and
 policy enforcement are required before any non-local deployment.
 
+## Development checks
+
+```bash
+cd control-plane && go test -race ./...
+cd ../agent && cargo fmt --check && cargo check
+```
+
+GitHub Actions runs formatting, static analysis, tests, and builds for both
+components on every pull request and push to `main`.
+
 ## Status
 
 Milestone 0 scaffolding. See [ROADMAP.md](docs/ROADMAP.md).
