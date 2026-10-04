@@ -29,9 +29,15 @@ Arbitrary command execution is intentionally outside the alpha milestone.
 Prerequisites: Docker with Compose.
 
 ```bash
+export AEGIS_DB_PASSWORD='choose-a-unique-local-lab-password'
 docker compose -f deployments/docker-compose.yml up --build
 curl http://127.0.0.1:8080/healthz
 ```
+
+PostgreSQL is private to the Compose network; its initial schema is installed
+only when the named volume is new. The alpha API **still uses in-memory state**;
+connecting it to PostgreSQL in transactions is the next milestone. Do not use
+this setup to retain real engagements or sensitive data yet.
 
 Create a lab engagement:
 

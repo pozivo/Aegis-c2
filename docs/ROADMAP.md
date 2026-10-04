@@ -11,7 +11,8 @@
 
 ## M1 — Secure control plane
 
-- [ ] PostgreSQL migrations
+- [x] Initial PostgreSQL schema and migration smoke test
+- [ ] Transactional API persistence and versioned migration runner
 - [ ] OIDC and WebAuthn
 - [ ] Organization-scoped RBAC
 - [x] CIDR validation and inventory input limits
