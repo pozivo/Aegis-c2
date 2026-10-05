@@ -9,7 +9,7 @@ Arbitrary command execution is intentionally outside the alpha milestone.
 
 ## Alpha architecture
 
-- `control-plane/`: Go HTTP API and in-memory alpha store
+- `control-plane/`: Go HTTP API, transactional PostgreSQL store, and migrations
 - `agent/`: Rust lab agent with an allowlisted inventory workflow
 - `docs/`: architecture, threat model, roadmap, and API notes
 - `deployments/`: local Docker Compose environment
@@ -35,9 +35,11 @@ curl http://127.0.0.1:8080/healthz
 ```
 
 PostgreSQL is private to the Compose network; its initial schema is installed
-only when the named volume is new. The alpha API **still uses in-memory state**;
-connecting it to PostgreSQL in transactions is the next milestone. Do not use
-this setup to retain real engagements or sensitive data yet.
+only when the named volume is new. The API uses PostgreSQL transactions for
+engagements, one-time enrollment, heartbeat, and the audit chain. Existing
+volumes need a separate migration before upgrading the schema. This alpha
+still lacks operator authentication and agent identity verification; use it
+only in a disposable local lab.
 
 Create a lab engagement:
 
@@ -51,9 +53,9 @@ The response contains a one-time `enrollment_token`. Start the lab agent with
 `AEGIS_SERVER`, `AEGIS_ENGAGEMENT_ID`, and `AEGIS_ENROLLMENT_TOKEN`; the token
 is stored only as a digest by the server and is consumed on successful use.
 
-The alpha API is intentionally unauthenticated only on loopback/local Compose.
-Do not expose it to a network. OIDC, mTLS, PostgreSQL, signed audit chains, and
-policy enforcement are required before any non-local deployment.
+The alpha API has no operator authentication or authenticated agent heartbeat.
+It is bound to loopback by Compose. Do not expose it to another network. OIDC,
+mTLS, and policy enforcement are required before any non-local deployment.
 
 ## Development checks
 

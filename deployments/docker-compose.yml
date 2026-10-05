@@ -20,6 +20,8 @@ services:
   control-plane:
     build:
       context: ../control-plane
+    environment:
+      AEGIS_DATABASE_URL: postgres://aegis:${AEGIS_DB_PASSWORD:?Set AEGIS_DB_PASSWORD for the local lab}@postgres:5432/aegis?sslmode=disable
     init: true
     read_only: true
     tmpfs:

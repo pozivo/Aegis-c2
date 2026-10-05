@@ -1,18 +1,23 @@
 package main
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
+	"database/sql"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
 	"net/netip"
+	"os"
 	"strings"
 	"sync"
 	"time"
+
+	_ "github.com/lib/pq"
 )
 
 const maxBodySize = 32 << 10
@@ -283,7 +288,24 @@ func newHandler(s *store, now func() time.Time) http.Handler {
 }
 
 func main() {
-	handler := newHandler(newStore(), time.Now)
+	url := os.Getenv("AEGIS_DATABASE_URL")
+	if url == "" {
+		log.Fatal("AEGIS_DATABASE_URL is required")
+	}
+	db, err := sql.Open("postgres", url)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer db.Close()
+	db.SetMaxOpenConns(10)
+	db.SetMaxIdleConns(5)
+	db.SetConnMaxLifetime(30 * time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := db.PingContext(ctx); err != nil {
+		log.Fatal(err)
+	}
+	handler := newPostgresHandler(db, time.Now)
 	server := &http.Server{
 		Addr:              ":8080",
 		Handler:           handler,

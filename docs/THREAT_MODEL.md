@@ -27,8 +27,8 @@
 ## Explicit alpha limitations
 
 - No authentication: bind to loopback only.
-- API state remains in-memory and disappears on restart; the PostgreSQL schema
-  is not connected to the API yet.
+- API state is persisted to PostgreSQL. The initial schema has no versioned
+  upgrade mechanism and the database owner can still alter its contents.
 - Enrollment token and mTLS are not implemented.
 - Audit events are not yet hash chained.
 - CIDR strings are recorded but not yet parsed and enforced.

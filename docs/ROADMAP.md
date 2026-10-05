@@ -12,13 +12,14 @@
 ## M1 — Secure control plane
 
 - [x] Initial PostgreSQL schema and migration smoke test
-- [ ] Transactional API persistence and versioned migration runner
+- [x] Transactional API persistence and restart integration test
+- [ ] Versioned migration runner and schema upgrade path
 - [ ] OIDC and WebAuthn
 - [ ] Organization-scoped RBAC
 - [x] CIDR validation and inventory input limits
 - [x] One-time enrollment tokens bound to engagement expiry
 - [ ] Agent mTLS certificates and rotation
-- [x] SHA-256 hash-chained in-memory audit journal
+- [x] SHA-256 hash-chained persistent audit journal
 
 ## M2 — Reliable orchestration
 
