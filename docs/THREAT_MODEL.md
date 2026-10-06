@@ -26,11 +26,14 @@
 
 ## Explicit alpha limitations
 
-- No authentication: bind to loopback only.
+- A single shared operator bearer token protects engagement creation and audit
+  reads. It has no per-user identity, roles, rotation, or session lifecycle;
+  bind to loopback only.
 - API state is persisted to PostgreSQL. The initial schema has no versioned
   upgrade mechanism and the database owner can still alter its contents.
-- Enrollment token and mTLS are not implemented.
-- Audit events are not yet hash chained.
-- CIDR strings are recorded but not yet parsed and enforced.
+- One-time enrollment tokens are implemented, but agent mTLS is not.
+- Audit events are hash chained but not externally anchored.
+- CIDR strings are parsed at creation but scope is not enforced on agent traffic.
+- Heartbeats are unauthenticated and must not be exposed outside the lab.
 
 The alpha must not be deployed outside a disposable local lab.

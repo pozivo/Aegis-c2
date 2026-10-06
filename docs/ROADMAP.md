@@ -15,6 +15,7 @@
 - [x] Transactional API persistence and restart integration test
 - [ ] Versioned migration runner and schema upgrade path
 - [ ] OIDC and WebAuthn
+- [x] Local shared operator token for engagement creation and audit reads
 - [ ] Organization-scoped RBAC
 - [x] CIDR validation and inventory input limits
 - [x] One-time enrollment tokens bound to engagement expiry

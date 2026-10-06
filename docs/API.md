@@ -6,13 +6,15 @@ The API exists to validate the domain model. It is not stable yet.
 |---|---|---|
 | GET | `/healthz` | Liveness |
 | GET | `/readyz` | Readiness |
-| POST | `/v1/engagements` | Create scoped engagement |
+| POST | `/v1/engagements` | Create scoped engagement; operator token required |
 | POST | `/v1/agents/enroll` | Enroll lab agent |
 | POST | `/v1/agents/{id}/heartbeat` | Update presence |
-| GET | `/v1/audit` | Inspect alpha audit events |
+| GET | `/v1/audit` | Inspect alpha audit events; operator token required |
 
-All mutating endpoints will later require authenticated identities,
-idempotency keys, explicit organization context, and policy decisions.
+Set `AEGIS_OPERATOR_TOKEN` to at least 32 characters before starting the API.
+Pass `Authorization: Bearer <operator token>` to create engagements or read
+audit history. This shared lab secret is not a replacement for OIDC, roles,
+idempotency keys, organization context, and policy decisions.
 
 Request bodies are limited to 32 KiB, reject unknown JSON fields, and apply
 basic inventory field limits. Engagement scope values must be valid CIDRs.
@@ -22,4 +24,4 @@ it as `Authorization: Bearer <token>`. The control plane stores only its SHA-256
 digest, compares it in constant time, and consumes it after successful use.
 
 Audit events include `prev_hash` and `hash`. The readiness endpoint recomputes
-the chain and returns HTTP 503 when in-memory audit integrity is invalid.
+the persistent chain and returns HTTP 503 when audit integrity is invalid.

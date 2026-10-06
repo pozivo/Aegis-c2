@@ -305,7 +305,10 @@ func main() {
 	if err := db.PingContext(ctx); err != nil {
 		log.Fatal(err)
 	}
-	handler := newPostgresHandler(db, time.Now)
+	handler, err := operatorAuth(newPostgresHandler(db, time.Now), os.Getenv("AEGIS_OPERATOR_TOKEN"))
+	if err != nil {
+		log.Fatal(err)
+	}
 	server := &http.Server{
 		Addr:              ":8080",
 		Handler:           handler,
