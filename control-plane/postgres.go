@@ -141,15 +141,17 @@ func newPostgresHandler(db *sql.DB, now func() time.Time) http.Handler {
 			return
 		}
 		a.ID, a.LastSeen = id(), current
+		heartbeatToken := id()
+		heartbeatDigest := sha256.Sum256([]byte(heartbeatToken))
 		if a.Labels == nil {
 			a.Labels = map[string]string{}
 		}
 		labels, err := json.Marshal(a.Labels)
 		if err == nil {
 			_, err = tx.ExecContext(r.Context(), `INSERT INTO agents
-				(id, engagement_id, hostname, os, architecture, labels, enrolled_at, last_seen)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
-				a.ID, a.EngagementID, a.Hostname, a.OS, a.Architecture, labels, current)
+				(id, engagement_id, hostname, os, architecture, labels, enrolled_at, last_seen, heartbeat_token_digest)
+				VALUES ($1, $2, $3, $4, $5, $6, $7, $7, $8)`,
+				a.ID, a.EngagementID, a.Hostname, a.OS, a.Architecture, labels, current, heartbeatDigest[:])
 		}
 		if err == nil {
 			_, err = tx.ExecContext(r.Context(), `UPDATE enrollment_tokens SET consumed_at = $2 WHERE engagement_id = $1`, a.EngagementID, current)
@@ -164,10 +166,31 @@ func newPostgresHandler(db *sql.DB, now func() time.Time) http.Handler {
 			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "enrollment transaction failed"})
 			return
 		}
-		writeJSON(w, http.StatusCreated, a)
+		writeJSON(w, http.StatusCreated, agentEnrolled{agent: a, HeartbeatToken: heartbeatToken})
 	})
 	mux.HandleFunc("POST /v1/agents/{agentID}/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		current := now().UTC()
+		token, present := bearerToken(r)
+		if !present {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "heartbeat token required"})
+			return
+		}
+		var digest []byte
+		err := db.QueryRowContext(r.Context(), `SELECT heartbeat_token_digest FROM agents WHERE id = $1`, r.PathValue("agentID")).Scan(&digest)
+		if errors.Is(err, sql.ErrNoRows) {
+			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent unavailable"})
+			return
+		}
+		if err != nil {
+			writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "heartbeat lookup failed"})
+			return
+		}
+		var expected [sha256.Size]byte
+		copy(expected[:], digest)
+		if len(digest) != sha256.Size || !tokenMatches(token, expected) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid heartbeat token"})
+			return
+		}
 		result, err := db.ExecContext(r.Context(), `UPDATE agents a SET last_seen = $2
 			FROM engagements e WHERE a.id = $1 AND e.id = a.engagement_id AND e.expires_at > $2`,
 			r.PathValue("agentID"), current)

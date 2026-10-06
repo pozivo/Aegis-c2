@@ -19,6 +19,7 @@
 - [ ] Organization-scoped RBAC
 - [x] CIDR validation and inventory input limits
 - [x] One-time enrollment tokens bound to engagement expiry
+- [x] Per-agent heartbeat tokens stored as digests
 - [ ] Agent mTLS certificates and rotation
 - [x] SHA-256 hash-chained persistent audit journal
 

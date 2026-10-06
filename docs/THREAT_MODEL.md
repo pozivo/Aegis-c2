@@ -31,9 +31,11 @@
   bind to loopback only.
 - API state is persisted to PostgreSQL. The initial schema has no versioned
   upgrade mechanism and the database owner can still alter its contents.
-- One-time enrollment tokens are implemented, but agent mTLS is not.
+- One-time enrollment and per-agent heartbeat tokens are implemented, but
+  agent mTLS, rotation, and revocation are not.
 - Audit events are hash chained but not externally anchored.
 - CIDR strings are parsed at creation but scope is not enforced on agent traffic.
-- Heartbeats are unauthenticated and must not be exposed outside the lab.
+- The alpha agent keeps its heartbeat token only in memory, so restarting it
+  requires a new engagement and enrollment.
 
 The alpha must not be deployed outside a disposable local lab.

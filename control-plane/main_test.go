@@ -88,11 +88,17 @@ func TestEnrollmentAndHeartbeat(t *testing.T) {
 	if response.Code != http.StatusCreated {
 		t.Fatalf("expected 201, got %d: %s", response.Code, response.Body.String())
 	}
-	var enrolled agent
+	var enrolled agentEnrolled
 	if err := json.NewDecoder(response.Body).Decode(&enrolled); err != nil {
 		t.Fatal(err)
 	}
-	heartbeat := request(t, handler, http.MethodPost, "/v1/agents/"+enrolled.ID+"/heartbeat", nil)
+	if missing := request(t, handler, http.MethodPost, "/v1/agents/"+enrolled.ID+"/heartbeat", nil); missing.Code != http.StatusUnauthorized {
+		t.Fatalf("missing heartbeat token returned %d", missing.Code)
+	}
+	if wrong := requestWithToken(t, handler, http.MethodPost, "/v1/agents/"+enrolled.ID+"/heartbeat", nil, "wrong"); wrong.Code != http.StatusUnauthorized {
+		t.Fatalf("invalid heartbeat token returned %d", wrong.Code)
+	}
+	heartbeat := requestWithToken(t, handler, http.MethodPost, "/v1/agents/"+enrolled.ID+"/heartbeat", nil, enrolled.HeartbeatToken)
 	if heartbeat.Code != http.StatusOK {
 		t.Fatalf("expected 200, got %d", heartbeat.Code)
 	}
@@ -115,12 +121,12 @@ func TestExpiredEngagementBlocksHeartbeat(t *testing.T) {
 		"os":            "linux",
 		"architecture":  "amd64",
 	}, e.EnrollmentToken)
-	var enrolled agent
+	var enrolled agentEnrolled
 	if err := json.NewDecoder(response.Body).Decode(&enrolled); err != nil {
 		t.Fatal(err)
 	}
 	clock = fixedNow.Add(2 * time.Hour)
-	heartbeat := request(t, handler, http.MethodPost, "/v1/agents/"+enrolled.ID+"/heartbeat", nil)
+	heartbeat := requestWithToken(t, handler, http.MethodPost, "/v1/agents/"+enrolled.ID+"/heartbeat", nil, enrolled.HeartbeatToken)
 	if heartbeat.Code != http.StatusForbidden {
 		t.Fatalf("expected 403, got %d", heartbeat.Code)
 	}

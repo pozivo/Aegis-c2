@@ -45,6 +45,11 @@ type agent struct {
 	LastSeen     time.Time         `json:"last_seen"`
 }
 
+type agentEnrolled struct {
+	agent
+	HeartbeatToken string `json:"heartbeat_token"`
+}
+
 type auditEvent struct {
 	ID        string         `json:"id"`
 	Time      time.Time      `json:"time"`
@@ -69,6 +74,7 @@ type store struct {
 	engagements     map[string]engagement
 	enrollmentToken map[string][sha256.Size]byte
 	agents          map[string]agent
+	heartbeatTokens map[string][sha256.Size]byte
 	audit           []auditEvent
 }
 
@@ -77,6 +83,7 @@ func newStore() *store {
 		engagements:     map[string]engagement{},
 		enrollmentToken: map[string][sha256.Size]byte{},
 		agents:          map[string]agent{},
+		heartbeatTokens: map[string][sha256.Size]byte{},
 	}
 }
 
@@ -255,10 +262,12 @@ func newHandler(s *store, now func() time.Time) http.Handler {
 			return
 		}
 		a.ID, a.LastSeen = id(), current
+		heartbeatToken := id()
 		s.agents[a.ID] = a
+		s.heartbeatTokens[a.ID] = sha256.Sum256([]byte(heartbeatToken))
 		delete(s.enrollmentToken, a.EngagementID)
 		appendAudit(s, auditEvent{ID: id(), Time: current, Action: "agent.enrolled", SubjectID: a.ID, Details: map[string]any{"engagement_id": a.EngagementID}})
-		writeJSON(w, http.StatusCreated, a)
+		writeJSON(w, http.StatusCreated, agentEnrolled{agent: a, HeartbeatToken: heartbeatToken})
 	})
 	mux.HandleFunc("POST /v1/agents/{agentID}/heartbeat", func(w http.ResponseWriter, r *http.Request) {
 		agentID := r.PathValue("agentID")
@@ -268,6 +277,11 @@ func newHandler(s *store, now func() time.Time) http.Handler {
 		a, ok := s.agents[agentID]
 		if !ok {
 			writeJSON(w, http.StatusNotFound, map[string]string{"error": "agent not found"})
+			return
+		}
+		token, present := bearerToken(r)
+		if !present || !tokenMatches(token, s.heartbeatTokens[agentID]) {
+			writeJSON(w, http.StatusUnauthorized, map[string]string{"error": "invalid heartbeat token"})
 			return
 		}
 		e, ok := s.engagements[a.EngagementID]

@@ -35,6 +35,8 @@ jobs:
       - uses: actions/checkout@v4
       - name: Apply initial migration
         run: psql -v ON_ERROR_STOP=1 -f control-plane/migrations/001_initial.sql
+      - name: Apply heartbeat credential migration
+        run: psql -v ON_ERROR_STOP=1 -f control-plane/migrations/002_agent_heartbeat.sql
       - name: Exercise constraints and append-only audit
         run: psql -v ON_ERROR_STOP=1 -f control-plane/migrations/001_initial_test.sql
 
@@ -68,7 +70,9 @@ jobs:
       - name: Resolve module dependencies
         run: go mod tidy
       - name: Apply schema for integration tests
-        run: psql -v ON_ERROR_STOP=1 -f migrations/001_initial.sql
+        run: |
+          psql -v ON_ERROR_STOP=1 -f migrations/001_initial.sql
+          psql -v ON_ERROR_STOP=1 -f migrations/002_agent_heartbeat.sql
         env:
           PGHOST: localhost
           PGPORT: 5432

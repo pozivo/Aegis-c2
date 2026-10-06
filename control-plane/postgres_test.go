@@ -45,14 +45,17 @@ func TestPostgresPersistsEnrollmentAcrossHandlers(t *testing.T) {
 	if enrolled.Code != http.StatusCreated {
 		t.Fatalf("enrollment returned %d: %s", enrolled.Code, enrolled.Body.String())
 	}
-	var agentRecord agent
+	var agentRecord agentEnrolled
 	if err := json.NewDecoder(enrolled.Body).Decode(&agentRecord); err != nil {
 		t.Fatal(err)
 	}
 	if response := requestWithToken(t, restarted, http.MethodPost, "/v1/agents/enroll", body, created.EnrollmentToken); response.Code != http.StatusUnauthorized {
 		t.Fatalf("reused token returned %d", response.Code)
 	}
-	if response := request(t, restarted, http.MethodPost, "/v1/agents/"+agentRecord.ID+"/heartbeat", nil); response.Code != http.StatusOK {
+	if response := request(t, restarted, http.MethodPost, "/v1/agents/"+agentRecord.ID+"/heartbeat", nil); response.Code != http.StatusUnauthorized {
+		t.Fatalf("missing heartbeat token returned %d", response.Code)
+	}
+	if response := requestWithToken(t, restarted, http.MethodPost, "/v1/agents/"+agentRecord.ID+"/heartbeat", nil, agentRecord.HeartbeatToken); response.Code != http.StatusOK {
 		t.Fatalf("heartbeat returned %d", response.Code)
 	}
 	if response := request(t, restarted, http.MethodGet, "/readyz", nil); response.Code != http.StatusOK {

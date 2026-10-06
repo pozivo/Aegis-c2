@@ -10,7 +10,7 @@ Arbitrary command execution is intentionally outside the alpha milestone.
 ## Alpha architecture
 
 - `control-plane/`: Go HTTP API, transactional PostgreSQL store, and migrations
-- `agent/`: Rust lab agent with an allowlisted inventory workflow
+- `agent/`: Rust lab agent with an allowlisted inventory workflow and authenticated heartbeat
 - `docs/`: architecture, threat model, roadmap, and API notes
 - `deployments/`: local Docker Compose environment
 
@@ -19,7 +19,7 @@ Arbitrary command execution is intentionally outside the alpha milestone.
 1. Deny by default.
 2. Every agent belongs to an active engagement.
 3. Every engagement declares allowed CIDRs and an expiry.
-4. Agent enrollment uses a one-time token; production will use mTLS identities.
+4. Agent enrollment uses a one-time token and heartbeat uses a per-agent secret; production will use mTLS identities.
 5. Every state transition emits an audit event.
 6. High-impact actions require explicit policy and multi-operator approval.
 7. Plugins will run in isolated WASM sandboxes.
@@ -38,9 +38,9 @@ curl http://127.0.0.1:8080/healthz
 PostgreSQL is private to the Compose network; its initial schema is installed
 only when the named volume is new. The API uses PostgreSQL transactions for
 engagements, one-time enrollment, heartbeat, and the audit chain. Existing
-volumes need a separate migration before upgrading the schema. This alpha
-uses a local operator bearer token but still lacks agent heartbeat identity
-verification; use it only in a disposable local lab.
+volumes need `002_agent_heartbeat.sql` applied before upgrading the API. Existing
+agents have no heartbeat token and need a new engagement and enrollment. This
+alpha uses local bearer tokens; use it only in a disposable local lab.
 
 Create a lab engagement:
 
@@ -54,8 +54,11 @@ curl -X POST http://127.0.0.1:8080/v1/engagements \
 The response contains a one-time `enrollment_token`. Start the lab agent with
 `AEGIS_SERVER`, `AEGIS_ENGAGEMENT_ID`, and `AEGIS_ENROLLMENT_TOKEN`; the token
 is stored only as a digest by the server and is consumed on successful use.
+The enrollment response gives the agent a distinct heartbeat token; the server
+stores only its digest. The lab agent retains this secret in memory and must
+re-enroll after restart with a new one-time enrollment token.
 
-The alpha API has a single shared operator token and no authenticated agent heartbeat.
+The alpha API has a single shared operator token and per-agent heartbeat tokens.
 It is bound to loopback by Compose. Do not expose it to another network. OIDC,
 mTLS, and policy enforcement are required before any non-local deployment.
 

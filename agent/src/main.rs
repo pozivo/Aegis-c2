@@ -12,6 +12,7 @@ struct Enrollment {
 #[derive(Deserialize)]
 struct EnrolledAgent {
     id: String,
+    heartbeat_token: String,
 }
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +30,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .send_json(serde_json::to_value(payload)?)?
         .into_json()?;
     loop {
-        ureq::post(&format!("{server}/v1/agents/{}/heartbeat", enrolled.id)).call()?;
+        ureq::post(&format!("{server}/v1/agents/{}/heartbeat", enrolled.id))
+            .set("Authorization", &format!("Bearer {}", enrolled.heartbeat_token))
+            .call()?;
         thread::sleep(Duration::from_secs(30));
     }
 }
