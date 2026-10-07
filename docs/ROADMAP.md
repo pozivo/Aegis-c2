@@ -13,7 +13,7 @@
 
 - [x] Initial PostgreSQL schema and migration smoke test
 - [x] Transactional API persistence and restart integration test
-- [ ] Versioned migration runner and schema upgrade path
+- [x] Versioned migration runner and alpha schema upgrade path
 - [ ] OIDC and WebAuthn
 - [x] Local shared operator token for engagement creation and audit reads
 - [ ] Organization-scoped RBAC

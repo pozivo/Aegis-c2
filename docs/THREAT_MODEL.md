@@ -29,8 +29,8 @@
 - A single shared operator bearer token protects engagement creation and audit
   reads. It has no per-user identity, roles, rotation, or session lifecycle;
   bind to loopback only.
-- API state is persisted to PostgreSQL. The initial schema has no versioned
-  upgrade mechanism and the database owner can still alter its contents.
+- API state is persisted to PostgreSQL with versioned migrations. The API
+  database owner can still alter its contents; use separate roles later.
 - One-time enrollment and per-agent heartbeat tokens are implemented, but
   agent mTLS, rotation, and revocation are not.
 - Audit events are hash chained but not externally anchored.

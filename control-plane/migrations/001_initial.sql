@@ -1,6 +1,4 @@
--- Aegis C2 M1 schema. Applied once on a fresh local PostgreSQL database.
--- Production upgrades will use a versioned migration runner and dedicated roles.
-BEGIN;
+-- Aegis C2 M1 schema. The migration runner wraps this file in a transaction.
 
 CREATE TABLE engagements (
     id text PRIMARY KEY CHECK (id ~ '^[0-9a-f]{32}$'),
@@ -54,5 +52,3 @@ $$;
 CREATE TRIGGER audit_events_immutable
     BEFORE UPDATE OR DELETE ON audit_events
     FOR EACH ROW EXECUTE FUNCTION reject_audit_mutation();
-
-COMMIT;

@@ -35,12 +35,13 @@ docker compose -f deployments/docker-compose.yml up --build
 curl http://127.0.0.1:8080/healthz
 ```
 
-PostgreSQL is private to the Compose network; its initial schema is installed
-only when the named volume is new. The API uses PostgreSQL transactions for
-engagements, one-time enrollment, heartbeat, and the audit chain. Existing
-volumes need `002_agent_heartbeat.sql` applied before upgrading the API. Existing
-agents have no heartbeat token and need a new engagement and enrollment. This
-alpha uses local bearer tokens; use it only in a disposable local lab.
+PostgreSQL is private to the Compose network. On startup the API applies
+versioned migrations in a transaction, tracks checksums, and recognizes
+databases initialized by earlier alpha releases. It uses PostgreSQL
+transactions for engagements, one-time enrollment, heartbeat, and the audit
+chain. Agents from before the heartbeat credential upgrade cannot heartbeat;
+create a new engagement and enroll again. This alpha uses local bearer tokens;
+use it only in a disposable local lab.
 
 Create a lab engagement:
 

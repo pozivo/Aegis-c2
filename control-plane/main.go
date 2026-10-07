@@ -319,6 +319,9 @@ func main() {
 	if err := db.PingContext(ctx); err != nil {
 		log.Fatal(err)
 	}
+	if err := applyMigrations(context.Background(), db); err != nil {
+		log.Fatal("database migration: ", err)
+	}
 	handler, err := operatorAuth(newPostgresHandler(db, time.Now), os.Getenv("AEGIS_OPERATOR_TOKEN"))
 	if err != nil {
 		log.Fatal(err)

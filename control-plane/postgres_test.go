@@ -25,6 +25,12 @@ func TestPostgresPersistsEnrollmentAcrossHandlers(t *testing.T) {
 	if err := db.Ping(); err != nil {
 		t.Fatal(err)
 	}
+	if err := applyMigrations(context.Background(), db); err != nil {
+		t.Fatal(err)
+	}
+	if err := applyMigrations(context.Background(), db); err != nil {
+		t.Fatalf("second migration pass failed: %v", err)
+	}
 	clock := time.Now().UTC()
 	handler := newPostgresHandler(db, func() time.Time { return clock })
 	response := request(t, handler, http.MethodPost, "/v1/engagements", map[string]any{

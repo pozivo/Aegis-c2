@@ -7,8 +7,6 @@ services:
       POSTGRES_PASSWORD: ${AEGIS_DB_PASSWORD:?Set AEGIS_DB_PASSWORD for the local lab}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ../control-plane/migrations/001_initial.sql:/docker-entrypoint-initdb.d/001_initial.sql:ro
-      - ../control-plane/migrations/002_agent_heartbeat.sql:/docker-entrypoint-initdb.d/002_agent_heartbeat.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U aegis -d aegis"]
       interval: 5s
